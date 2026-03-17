@@ -612,6 +612,65 @@
     transform: scale(1.1);
   }
 
+  /* Skin details card */
+  .skin-details-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  @media (max-width: 600px) {
+    .skin-details-grid { grid-template-columns: 1fr; }
+    .skin-preview-wrap { text-align: center; }
+  }
+
+  .body-render {
+    image-rendering: pixelated;
+    height: 160px;
+    width: auto;
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    background: var(--surface2);
+    display: block;
+  }
+
+  .skin-desc {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.7;
+    margin-bottom: 16px;
+  }
+
+  .skin-link-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .skin-link-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 9px 14px;
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    background: var(--surface2);
+    transition: all 0.15s;
+    width: fit-content;
+  }
+
+  .skin-link-btn:hover {
+    border-color: var(--green-dim);
+    color: var(--green);
+    background: rgba(93,252,141,0.05);
+  }
+
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
@@ -657,8 +716,7 @@
 
   <footer>
     <p>CraftLookup uses the <a href="https://wiki.vg/Mojang_API" target="_blank">Mojang API</a> · Data sourced from official Minecraft services</p>
-    <p style="margin-top:6px;">Skin images via <a href="https://mineskin.eu" target="_blank">mineskin.eu</a> · Name history via <a href="https://api.ashcon.app" target="_blank">Ashcon API</a></p>
-    <p style="margin-top:6px; color: var(--text-dim);">Previous server data is unavailable through official APIs — this data isn't exposed publicly by Mojang.</p>
+    <p style="margin-top:6px;">Skin images via <a href="https://mc-heads.net" target="_blank">mc-heads.net</a> & <a href="https://minotar.net" target="_blank">minotar.net</a> · Player data via <a href="https://playerdb.co" target="_blank">PlayerDB</a> & <a href="https://api.ashcon.app" target="_blank">Ashcon API</a></p>
   </footer>
 
 </div>
@@ -781,11 +839,11 @@ function renderJava(data, nameHistory) {
   const name = data.username;
   nameHistory = nameHistory || [];
 
-  // Skin URLs — crafatar has CORS support and works from local files
+  // Skin URLs — mc-heads.net for renders, minotar.net for raw skin download
   const rawUUID = (data.id || '').replace(/-/g, '');
-  const headUrl = `https://crafatar.com/avatars/${rawUUID}?size=100&overlay`;
-  const bodyUrl = `https://crafatar.com/renders/body/${rawUUID}?scale=6&overlay`;
-  const skinUrl = `https://crafatar.com/skins/${rawUUID}`;
+  const headUrl = `https://mc-heads.net/avatar/${rawUUID}/100`;
+  const bodyUrl = `https://mc-heads.net/body/${rawUUID}/200`;
+  const skinUrl = `https://minotar.net/skin/${encodeURIComponent(name)}`;
 
   // Name history: last 3 before current
   const prevNames = nameHistory.filter(e => e.username !== name).slice(-3).reverse();
@@ -806,7 +864,7 @@ function renderJava(data, nameHistory) {
       <div class="skin-container">
         <div class="skin-frame">
           <img src="${headUrl}" alt="${escHtml(name)} skin" id="skinImg"
-            onerror="this.src='https://crafatar.com/avatars/8667ba71b85a4004af54457a9734eed7?size=100&overlay'" />
+            onerror="this.src='https://mc-heads.net/avatar/MHF_Steve/100'" />
           <span class="skin-platform java">JAVA</span>
         </div>
         <div class="skin-actions">
@@ -865,11 +923,34 @@ function renderJava(data, nameHistory) {
       </div>
 
       <div class="info-card info-card-full">
-        <div class="card-title">Previous Servers</div>
-        <p class="server-notice">
-          <strong>This data is not publicly available.</strong><br>
-          Mojang does not expose server history through any official API. Player server activity is stored privately and cannot be accessed by third-party tools. This applies to all Java and Bedrock players — no tool can retrieve this information legitimately.
-        </p>
+        <div class="card-title">Skin Details</div>
+        <div class="skin-details-grid">
+          <div class="skin-preview-wrap">
+            <img src="${bodyUrl}" alt="${escHtml(name)} body" class="body-render"
+              onerror="this.style.display='none'" />
+          </div>
+          <div class="skin-links">
+            <p class="skin-desc">Full skin texture and renders for <strong style="color:var(--text)">${escHtml(name)}</strong>. All images sourced live from mc-heads.net and minotar.net.</p>
+            <div class="skin-link-list">
+              <a class="skin-link-btn" href="${skinUrl}" target="_blank" download="${escHtml(name)}.png">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                Download Raw Skin (PNG)
+              </a>
+              <a class="skin-link-btn" href="${bodyUrl}" target="_blank">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12l4 4 4-4"/></svg>
+                View Full Body Render
+              </a>
+              <a class="skin-link-btn" href="https://mc-heads.net/avatar/${rawUUID}/600" target="_blank">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                View Large Head (600px)
+              </a>
+              <a class="skin-link-btn" href="https://minotar.net/armor/body/${encodeURIComponent(name)}/200.png" target="_blank">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                View With Armour Layer
+              </a>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   `;
@@ -946,11 +1027,30 @@ function renderBedrock(username, xuid, skinData) {
       </div>
 
       <div class="info-card info-card-full">
-        <div class="card-title">Previous Servers</div>
-        <p class="server-notice">
-          <strong>Server history is not publicly accessible.</strong><br>
-          Neither Mojang nor Microsoft expose player server history via any API. This information is private and cannot be retrieved by third-party services.
-        </p>
+        <div class="card-title">Skin Details</div>
+        <div class="skin-details-grid">
+          <div class="skin-preview-wrap">
+            <img src="https://mc-heads.net/body/${encodeURIComponent(username)}/200" alt="${escHtml(username)} body" class="body-render"
+              onerror="this.style.display='none'" />
+          </div>
+          <div class="skin-links">
+            <p class="skin-desc">Skin data for Bedrock players is linked to your Microsoft/Xbox account. Renders shown are best-effort via mc-heads.</p>
+            <div class="skin-link-list">
+              ${skinUrl ? `<a class="skin-link-btn" href="${skinUrl}" target="_blank" download="${escHtml(username)}.png">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                Download Skin Texture
+              </a>` : ''}
+              <a class="skin-link-btn" href="https://mc-heads.net/body/${encodeURIComponent(username)}/300" target="_blank">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12l4 4 4-4"/></svg>
+                View Full Body Render
+              </a>
+              <a class="skin-link-btn" href="https://mc-heads.net/avatar/${encodeURIComponent(username)}/600" target="_blank">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                View Large Head (600px)
+              </a>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   `;
