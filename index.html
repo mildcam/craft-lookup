@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CraftLookup — Minecraft Player Search</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DM+Mono:wght@300;400;500&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --surface: #111419;
+    --surface2: #181d24;
+    --border: #1f2730;
+    --border2: #2a3540;
+    --green: #5dfc8d;
+    --green-dim: #2a7a4a;
+    --teal: #3de8c8;
+    --amber: #f5c542;
+    --red: #ff4d4d;
+    --text: #e8edf2;
+    --text-muted: #6b7a8a;
+    --text-dim: #3a4755;
+    --pixel: 'Press Start 2P', monospace;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Space Grotesk', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(93,252,141,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(93,252,141,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Glow orb */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 700px;
+    height: 400px;
+    background: radial-gradient(ellipse, rgba(93,252,141,0.06) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* Header */
+  header {
+    padding: 60px 0 48px;
+    text-align: center;
+  }
+
+  .logo-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--green);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    border: 1px solid var(--green-dim);
+    padding: 4px 12px;
+    border-radius: 2px;
+    margin-bottom: 24px;
+    background: rgba(93,252,141,0.05);
+  }
+
+  h1 {
+    font-family: var(--pixel);
+    font-size: clamp(18px, 4vw, 28px);
+    color: var(--text);
+    line-height: 1.5;
+    letter-spacing: 0.02em;
+    margin-bottom: 12px;
+  }
+
+  h1 span {
+    color: var(--green);
+  }
+
+  .subtitle {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+  }
+
+  /* Search */
+  .search-box {
+    margin: 40px 0;
+    position: relative;
+  }
+
+  .search-inner {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    background: var(--surface);
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .search-inner:focus-within {
+    border-color: var(--green-dim);
+    box-shadow: 0 0 0 3px rgba(93,252,141,0.08), 0 0 20px rgba(93,252,141,0.06);
+  }
+
+  .search-prefix {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--green);
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    background: rgba(93,252,141,0.05);
+    border-right: 1px solid var(--border2);
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  #playerInput {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 16px;
+    padding: 18px 20px;
+    letter-spacing: 0.05em;
+  }
+
+  #playerInput::placeholder {
+    color: var(--text-dim);
+  }
+
+  #searchBtn {
+    background: var(--green);
+    color: #000;
+    border: none;
+    font-family: var(--pixel);
+    font-size: 9px;
+    padding: 0 28px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: background 0.15s, transform 0.1s;
+    white-space: nowrap;
+  }
+
+  #searchBtn:hover { background: #7affab; }
+  #searchBtn:active { transform: scale(0.98); }
+  #searchBtn:disabled { background: var(--border2); color: var(--text-muted); cursor: not-allowed; }
+
+  /* Platform badges */
+  .platform-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    align-items: center;
+  }
+
+  .platform-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 2px;
+    border: 1px solid;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .badge.java { border-color: var(--teal); color: var(--teal); background: rgba(61,232,200,0.05); }
+  .badge.java.active { background: rgba(61,232,200,0.15); }
+  .badge.bedrock { border-color: var(--amber); color: var(--amber); background: rgba(245,197,66,0.05); }
+  .badge.bedrock.active { background: rgba(245,197,66,0.15); }
+
+  /* Error */
+  .error-msg {
+    display: none;
+    background: rgba(255,77,77,0.08);
+    border: 1px solid rgba(255,77,77,0.3);
+    border-radius: 4px;
+    padding: 14px 18px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--red);
+    margin-top: 16px;
+    letter-spacing: 0.03em;
+  }
+
+  /* Loading */
+  .loader {
+    display: none;
+    text-align: center;
+    padding: 60px 0;
+  }
+
+  .loader-grid {
+    display: inline-grid;
+    grid-template-columns: repeat(3, 12px);
+    grid-template-rows: repeat(3, 12px);
+    gap: 3px;
+    margin-bottom: 20px;
+  }
+
+  .loader-grid span {
+    background: var(--green);
+    opacity: 0;
+    animation: gridPulse 1s infinite;
+    border-radius: 1px;
+  }
+
+  .loader-grid span:nth-child(1) { animation-delay: 0s; }
+  .loader-grid span:nth-child(2) { animation-delay: 0.1s; }
+  .loader-grid span:nth-child(3) { animation-delay: 0.2s; }
+  .loader-grid span:nth-child(4) { animation-delay: 0.3s; }
+  .loader-grid span:nth-child(5) { animation-delay: 0.4s; }
+  .loader-grid span:nth-child(6) { animation-delay: 0.5s; }
+  .loader-grid span:nth-child(7) { animation-delay: 0.6s; }
+  .loader-grid span:nth-child(8) { animation-delay: 0.7s; }
+  .loader-grid span:nth-child(9) { animation-delay: 0.8s; }
+
+  @keyframes gridPulse {
+    0%, 100% { opacity: 0.1; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1); }
+  }
+
+  .loader p {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+  }
+
+  /* Results */
+  #results {
+    display: none;
+    animation: fadeUp 0.5s ease forwards;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Profile hero */
+  .profile-hero {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 36px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 32px;
+    align-items: center;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .profile-hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--green), var(--teal), transparent);
+  }
+
+  .skin-container {
+    position: relative;
+    text-align: center;
+  }
+
+  .skin-frame {
+    width: 120px;
+    height: 120px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    image-rendering: pixelated;
+  }
+
+  .skin-frame img {
+    width: 90px;
+    height: 90px;
+    image-rendering: pixelated;
+  }
+
+  .skin-platform {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    font-family: var(--mono);
+    font-size: 8px;
+    padding: 2px 6px;
+    border-radius: 2px;
+  }
+
+  .skin-platform.java { background: rgba(61,232,200,0.15); color: var(--teal); border: 1px solid rgba(61,232,200,0.3); }
+  .skin-platform.bedrock { background: rgba(245,197,66,0.15); color: var(--amber); border: 1px solid rgba(245,197,66,0.3); }
+
+  .skin-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    justify-content: center;
+  }
+
+  .btn-sm {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 6px 12px;
+    border-radius: 3px;
+    border: 1px solid var(--border2);
+    background: var(--surface2);
+    color: var(--text-muted);
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.15s;
+  }
+
+  .btn-sm:hover {
+    border-color: var(--green-dim);
+    color: var(--green);
+    background: rgba(93,252,141,0.05);
+  }
+
+  .btn-sm svg { width: 11px; height: 11px; }
+
+  .profile-info {
+    min-width: 0;
+  }
+
+  .profile-name {
+    font-family: var(--pixel);
+    font-size: clamp(14px, 3vw, 22px);
+    color: var(--text);
+    margin-bottom: 6px;
+    word-break: break-all;
+  }
+
+  .profile-name-sub {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+  }
+
+  .uuid-block {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .uuid-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  .uuid-value {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--teal);
+    word-break: break-all;
+    letter-spacing: 0.05em;
+  }
+
+  .copy-btn {
+    flex-shrink: 0;
+    background: none;
+    border: 1px solid var(--border2);
+    border-radius: 2px;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 4px 8px;
+    font-family: var(--mono);
+    font-size: 9px;
+    transition: all 0.15s;
+  }
+
+  .copy-btn:hover { border-color: var(--teal); color: var(--teal); }
+  .copy-btn.copied { border-color: var(--green); color: var(--green); }
+
+  /* Info grid */
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 600px) {
+    .profile-hero { grid-template-columns: 1fr; text-align: center; }
+    .uuid-block { flex-wrap: wrap; }
+    .info-grid { grid-template-columns: 1fr; }
+  }
+
+  .info-card {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 20px 24px;
+  }
+
+  .info-card-full {
+    grid-column: 1 / -1;
+  }
+
+  .card-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-title::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: var(--green);
+    border-radius: 1px;
+    flex-shrink: 0;
+  }
+
+  /* Name history */
+  .name-history {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .name-entry {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    transition: border-color 0.15s;
+  }
+
+  .name-entry:hover { border-color: var(--border2); }
+
+  .name-index {
+    font-family: var(--pixel);
+    font-size: 8px;
+    color: var(--text-dim);
+    min-width: 20px;
+  }
+
+  .name-text {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--text);
+    flex: 1;
+  }
+
+  .name-date {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  .name-current-tag {
+    font-family: var(--mono);
+    font-size: 9px;
+    padding: 2px 8px;
+    background: rgba(93,252,141,0.1);
+    border: 1px solid var(--green-dim);
+    border-radius: 2px;
+    color: var(--green);
+  }
+
+  /* Server info */
+  .server-notice {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.7;
+  }
+
+  .server-notice strong {
+    color: var(--amber);
+    font-weight: 500;
+  }
+
+  /* Stats row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+
+  .stat-item {
+    background: var(--surface);
+    padding: 16px 20px;
+    text-align: center;
+  }
+
+  .stat-value {
+    font-family: var(--pixel);
+    font-size: 13px;
+    color: var(--green);
+    margin-bottom: 6px;
+  }
+
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    padding-top: 40px;
+    border-top: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.8;
+  }
+
+  footer a { color: var(--green-dim); text-decoration: none; }
+  footer a:hover { color: var(--green); }
+
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border2), transparent);
+    margin: 32px 0;
+  }
+
+  /* Animations */
+  .fade-in {
+    opacity: 0;
+    animation: fadeIn 0.4s ease forwards;
+  }
+
+  @keyframes fadeIn {
+    to { opacity: 1; }
+  }
+
+  .skin-frame img {
+    transition: transform 0.3s ease;
+  }
+
+  .skin-frame:hover img {
+    transform: scale(1.1);
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--green-dim); }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <div class="logo-tag">✦ Player Intelligence Tool</div>
+    <h1>CRAFT<span>LOOKUP</span></h1>
+    <p class="subtitle">// Java & Bedrock Compatible · Powered by Mojang API</p>
+  </header>
+
+  <div class="search-box">
+    <div class="search-inner">
+      <div class="search-prefix">$ player:</div>
+      <input type="text" id="playerInput" placeholder="Enter username..." autocomplete="off" spellcheck="false" />
+      <button id="searchBtn">SEARCH</button>
+    </div>
+    <div class="platform-row">
+      <span class="platform-label">Platform:</span>
+      <span class="badge java active" id="badgeJava" onclick="setPlatform('java')">☕ Java</span>
+      <span class="badge bedrock" id="badgeBedrock" onclick="setPlatform('bedrock')">⛏ Bedrock</span>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <div class="loader" id="loader">
+    <div class="loader-grid">
+      <span></span><span></span><span></span>
+      <span></span><span></span><span></span>
+      <span></span><span></span><span></span>
+    </div>
+    <p>FETCHING PLAYER DATA...</p>
+  </div>
+
+  <div id="results"></div>
+
+  <div class="divider"></div>
+
+  <footer>
+    <p>CraftLookup uses the <a href="https://wiki.vg/Mojang_API" target="_blank">Mojang API</a> · Data sourced from official Minecraft services</p>
+    <p style="margin-top:6px;">Skin images via <a href="https://mineskin.eu" target="_blank">mineskin.eu</a> · Name history via <a href="https://api.ashcon.app" target="_blank">Ashcon API</a></p>
+    <p style="margin-top:6px; color: var(--text-dim);">Previous server data is unavailable through official APIs — this data isn't exposed publicly by Mojang.</p>
+  </footer>
+
+</div>
+
+<script>
+let platform = 'java';
+
+function setPlatform(p) {
+  platform = p;
+  document.getElementById('badgeJava').classList.toggle('active', p === 'java');
+  document.getElementById('badgeBedrock').classList.toggle('active', p === 'bedrock');
+}
+
+document.getElementById('playerInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') lookupPlayer();
+});
+
+document.getElementById('searchBtn').addEventListener('click', lookupPlayer);
+
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  el.textContent = '⚠ ' + msg;
+  el.style.display = 'block';
+}
+
+function hideError() {
+  document.getElementById('errorMsg').style.display = 'none';
+}
+
+async function lookupPlayer() {
+  const username = document.getElementById('playerInput').value.trim();
+  if (!username) { showError('Please enter a username.'); return; }
+
+  hideError();
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('loader').style.display = 'block';
+  document.getElementById('searchBtn').disabled = true;
+
+  try {
+    if (platform === 'java') {
+      await lookupJava(username);
+    } else {
+      await lookupBedrock(username);
+    }
+  } catch (err) {
+    showError(err.message || 'An unexpected error occurred.');
+    document.getElementById('loader').style.display = 'none';
+  } finally {
+    document.getElementById('searchBtn').disabled = false;
+  }
+}
+
+async function lookupJava(username) {
+  // PlayerDB has proper CORS headers and works from local files
+  const res = await fetch(`https://playerdb.co/api/player/minecraft/${encodeURIComponent(username)}`);
+
+  if (!res.ok) throw new Error(`API error (${res.status}). Please try again.`);
+
+  const json = await res.json();
+  if (!json.success || !json.data?.player) throw new Error(`Player "${username}" not found on Java Edition.`);
+
+  const player = json.data.player;
+  // PlayerDB gives us: id (uuid), username, avatar (head), skin_texture (raw skin)
+  // Also fetch name history from Ashcon as a secondary call (it usually works)
+  let nameHistory = [];
+  try {
+    const ashRes = await fetch(`https://api.ashcon.app/mojang/v2/user/${encodeURIComponent(username)}`);
+    if (ashRes.ok) {
+      const ashData = await ashRes.json();
+      nameHistory = ashData.username_history || [];
+    }
+  } catch(_) {}
+
+  document.getElementById('loader').style.display = 'none';
+  renderJava(player, nameHistory);
+}
+
+async function lookupBedrock(username) {
+  // Bedrock uses XUID — Geyser/Floodgate API via GeyserMC
+  const res = await fetch(`https://api.geysermc.org/v2/xbox/xuid/${encodeURIComponent(username)}`);
+
+  if (res.status === 404) throw new Error(`Player "${username}" not found on Bedrock/Xbox.`);
+  if (!res.ok) throw new Error(`Bedrock lookup failed (${res.status}). Try Java mode.`);
+
+  const xboxData = await res.json();
+  const xuid = xboxData.xuid;
+
+  // Get skin via GeyserMC
+  const skinRes = await fetch(`https://api.geysermc.org/v2/skin/${xuid}`);
+  let skinData = null;
+  if (skinRes.ok) skinData = await skinRes.json();
+
+  document.getElementById('loader').style.display = 'none';
+  renderBedrock(username, xuid, skinData);
+}
+
+function formatUUID(uuid) {
+  if (!uuid) return 'N/A';
+  // Already formatted
+  if (uuid.includes('-')) return uuid;
+  return uuid.replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
+}
+
+function timeSince(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diff = now - d;
+  const days = Math.floor(diff / 86400000);
+  const years = Math.floor(days / 365);
+  if (years > 0) return `${years}y ago`;
+  if (days > 30) return `${Math.floor(days/30)}mo ago`;
+  if (days > 0) return `${days}d ago`;
+  return 'recently';
+}
+
+function renderJava(data, nameHistory) {
+  // PlayerDB fields: data.id = UUID, data.username, data.avatar (head img URL), data.skin_texture (raw skin URL)
+  const uuid = formatUUID(data.id);
+  const name = data.username;
+  nameHistory = nameHistory || [];
+
+  // Skin URLs — crafatar has CORS support and works from local files
+  const rawUUID = (data.id || '').replace(/-/g, '');
+  const headUrl = `https://crafatar.com/avatars/${rawUUID}?size=100&overlay`;
+  const bodyUrl = `https://crafatar.com/renders/body/${rawUUID}?scale=6&overlay`;
+  const skinUrl = `https://crafatar.com/skins/${rawUUID}`;
+
+  // Name history: last 3 before current
+  const prevNames = nameHistory.filter(e => e.username !== name).slice(-3).reverse();
+  const changedAt = nameHistory.find(e => e.username === name)?.changed_at;
+
+  const prevNamesHTML = prevNames.length > 0
+    ? prevNames.map((n, i) => `
+      <div class="name-entry fade-in" style="animation-delay:${(i+1)*0.08}s">
+        <span class="name-index">#${prevNames.length - i}</span>
+        <span class="name-text">${escHtml(n.username)}</span>
+        <span class="name-date">${n.changed_at ? formatDate(n.changed_at) + ' · ' + timeSince(n.changed_at) : 'Original'}</span>
+      </div>
+    `).join('')
+    : '<p style="font-family:var(--mono);font-size:12px;color:var(--text-dim);">No previous names found — this may be the original username.</p>';
+
+  const html = `
+    <div class="profile-hero fade-in">
+      <div class="skin-container">
+        <div class="skin-frame">
+          <img src="${headUrl}" alt="${escHtml(name)} skin" id="skinImg"
+            onerror="this.src='https://crafatar.com/avatars/8667ba71b85a4004af54457a9734eed7?size=100&overlay'" />
+          <span class="skin-platform java">JAVA</span>
+        </div>
+        <div class="skin-actions">
+          <a class="btn-sm" href="${skinUrl}" download="${escHtml(name)}_skin.png" target="_blank">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Skin
+          </a>
+          <a class="btn-sm" href="${bodyUrl}" target="_blank">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12l4 4 4-4"/></svg>
+            View
+          </a>
+        </div>
+      </div>
+      <div class="profile-info">
+        <div class="profile-name">${escHtml(name)}</div>
+        <div class="profile-name-sub">Java Edition Player${changedAt ? ' · Name changed ' + timeSince(changedAt) : ''}</div>
+        <div class="uuid-block">
+          <span class="uuid-label">UUID</span>
+          <span class="uuid-value" id="uuidVal">${escHtml(uuid)}</span>
+          <button class="copy-btn" onclick="copyText('${escHtml(uuid)}', this)">COPY</button>
+        </div>
+        <div class="uuid-block">
+          <span class="uuid-label">SHORT</span>
+          <span class="uuid-value" style="color:var(--text-muted)">${escHtml(rawUUID)}</span>
+          <button class="copy-btn" onclick="copyText('${escHtml(rawUUID)}', this)">COPY</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-row fade-in">
+      <div class="stat-item">
+        <div class="stat-value">${nameHistory.length}</div>
+        <div class="stat-label">Names Used</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">${prevNames.length}</div>
+        <div class="stat-label">Prev Names</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">JAVA</div>
+        <div class="stat-label">Platform</div>
+      </div>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-card info-card-full">
+        <div class="card-title">Name History</div>
+        <div class="name-history">
+          <div class="name-entry fade-in">
+            <span class="name-index">#${nameHistory.length || 1}</span>
+            <span class="name-text">${escHtml(name)}</span>
+            <span class="name-current-tag">CURRENT</span>
+          </div>
+          ${prevNamesHTML}
+        </div>
+      </div>
+
+      <div class="info-card info-card-full">
+        <div class="card-title">Previous Servers</div>
+        <p class="server-notice">
+          <strong>This data is not publicly available.</strong><br>
+          Mojang does not expose server history through any official API. Player server activity is stored privately and cannot be accessed by third-party tools. This applies to all Java and Bedrock players — no tool can retrieve this information legitimately.
+        </p>
+      </div>
+    </div>
+  `;
+
+  const container = document.getElementById('results');
+  container.innerHTML = html;
+  container.style.display = 'block';
+}
+
+function renderBedrock(username, xuid, skinData) {
+  const skinUrl = skinData?.texture_id
+    ? `https://textures.minecraft.net/texture/${skinData.texture_id}`
+    : null;
+  const headDisplay = skinData
+    ? `<img src="https://mc-heads.net/head/${encodeURIComponent(username)}/100" alt="skin" onerror="this.parentElement.innerHTML='<span style=font-family:var(--pixel);font-size:9px;color:var(--text-dim)>NO SKIN</span>'" />`
+    : `<span style="font-family:var(--pixel);font-size:9px;color:var(--text-dim)">BEDROCK</span>`;
+
+  const html = `
+    <div class="profile-hero fade-in">
+      <div class="skin-container">
+        <div class="skin-frame">
+          ${headDisplay}
+          <span class="skin-platform bedrock">BEDROCK</span>
+        </div>
+        <div class="skin-actions">
+          ${skinUrl ? `<a class="btn-sm" href="${skinUrl}" download="${escHtml(username)}_skin.png" target="_blank">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Download
+          </a>` : ''}
+          ${skinUrl ? `<a class="btn-sm" href="${skinUrl}" target="_blank">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12l4 4 4-4"/></svg>
+            View
+          </a>` : '<span style="font-family:var(--mono);font-size:10px;color:var(--text-dim)">Skin unavailable</span>'}
+        </div>
+      </div>
+      <div class="profile-info">
+        <div class="profile-name">${escHtml(username)}</div>
+        <div class="profile-name-sub">Bedrock Edition Player · Xbox / Mobile / Console</div>
+        <div class="uuid-block">
+          <span class="uuid-label">XUID</span>
+          <span class="uuid-value">${escHtml(xuid)}</span>
+          <button class="copy-btn" onclick="copyText('${escHtml(xuid)}', this)">COPY</button>
+        </div>
+        ${skinData?.texture_id ? `<div class="uuid-block">
+          <span class="uuid-label">SKIN ID</span>
+          <span class="uuid-value" style="font-size:10px">${escHtml(skinData.texture_id)}</span>
+          <button class="copy-btn" onclick="copyText('${escHtml(skinData.texture_id)}', this)">COPY</button>
+        </div>` : ''}
+      </div>
+    </div>
+
+    <div class="stats-row fade-in">
+      <div class="stat-item">
+        <div class="stat-value">XBOX</div>
+        <div class="stat-label">Auth Type</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">${skinData ? 'YES' : 'N/A'}</div>
+        <div class="stat-label">Skin Data</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">BEDROCK</div>
+        <div class="stat-label">Platform</div>
+      </div>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-card info-card-full">
+        <div class="card-title">Name History</div>
+        <p class="server-notice">
+          <strong>Bedrock name history is unavailable.</strong><br>
+          Microsoft/Xbox does not provide a public API for username change history. Your Bedrock identity is tied to your Microsoft account, and name history is managed privately by Microsoft.
+        </p>
+      </div>
+
+      <div class="info-card info-card-full">
+        <div class="card-title">Previous Servers</div>
+        <p class="server-notice">
+          <strong>Server history is not publicly accessible.</strong><br>
+          Neither Mojang nor Microsoft expose player server history via any API. This information is private and cannot be retrieved by third-party services.
+        </p>
+      </div>
+    </div>
+  `;
+
+  const container = document.getElementById('results');
+  container.innerHTML = html;
+  container.style.display = 'block';
+}
+
+function formatDate(str) {
+  if (!str) return '';
+  const d = new Date(str);
+  return d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function copyText(text, btn) {
+  try {
+    await navigator.clipboard.writeText(text);
+    if (btn) {
+      btn.textContent = '✓ COPIED';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = 'COPY';
+        btn.classList.remove('copied');
+      }, 2000);
+    }
+  } catch {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+}
+</script>
+</body>
+</html>
